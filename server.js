@@ -4,9 +4,8 @@ const cors = require("cors");
 const app = express();
 
 var corsOptions = {
-  origin: "http://localhost:8081"
+  origin: "http://localhost:5173"
 };
-
 app.use(cors(corsOptions));
 
 // parse requests of content-type - application/json
@@ -34,8 +33,8 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to bezkoder application." });
 });
 
-require("./app/routes/turorial.routes")(app);
-
+// require("./app/routes/turorial.routes")(app);
+require("./app/routes/ActiveStockTickers.routes")(app);
 // set port, listen for requests
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
