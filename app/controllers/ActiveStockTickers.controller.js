@@ -57,11 +57,7 @@ const lastDatesInRange = getLastDatesInRange(startDate, endDate);
 
 // Retrieve all Tutorials from the database.
 exports.UpcomingEarnings = async(req, res) => {
-  
   const {size_range, first, rows, page, sortField, sortOrder, afterDays} = req.body;
-  // const sizeRange = req.query.sizeRange;
-  // const afterDays = req.query.afterDays;
-  // const page = req.query.page;
   const sizeRanges = size_range.split(',');
   const today = new Date();
   
@@ -86,8 +82,6 @@ exports.UpcomingEarnings = async(req, res) => {
       }
       return { "ticker_info.Highlights.MarketCapitalization": { $gte: min, $lte: max } };
     });
-    
-    console.log(orConditions);
   }
   var orConditions1 = [];
     
@@ -121,39 +115,67 @@ exports.UpcomingEarnings = async(req, res) => {
     };
     
   }
+  const pipeline = [
+    {
+      $match: find // Your match criteria
+    },
+    {
+      $facet: {
+        totalCount: [
+          {
+            $count: "total"
+          }
+        ],
+        documents: [
+          {
+            $skip: first // Skip the first 'first' documents
+          },
+          {
+            $limit: rows // Limit the number of documents returned to 'rows'
+          },
+          {
+            $project:{
+              _id: 0,
+              ticker: 1,
+              name: 1,
+              "ticker_info.Highlights.MarketCapitalization": 1,
+              "ticker_info.Earnings.History" : 1
+            }
+          },
+          {
+            $sort: {
+              "ticker_info.Highlights.MarketCapitalization": -1
+            }
+          }
+        ]
+      }
+    }
+  ];
   
-  const projection = {
-    _id: 0,
-    ticker: 1,
-    name: 1,
-    "ticker_info.Highlights.MarketCapitalization": 1,
-    "ticker_info.Earnings.History" : 1
-  };
-  const totalCount = await database.collection('ActiveStockTickers').countDocuments(find);
-  const documents = await database.collection('ActiveStockTickers').find(find).project(projection).sort({"ticker_info.Highlights.MarketCapitalization":-1}).skip(first).limit(rows).toArray();
-  var resData = [];
-  documents.forEach(item => {
-    Object.keys(item.ticker_info.Earnings.History).filter(hDate => { return lastDatesInRange.includes(hDate) && item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket === "AfterMarket" && item.ticker_info.Earnings.History[`${hDate}`].epsEstimate !== null}).map(hDate => {
-      resData.push([
-        item.ticker,
-        item.name,
-        item.ticker_info.Earnings.History[`${hDate}`].epsEstimate,
-        item.ticker_info.Earnings.History[`${hDate}`].reportDate,
-        item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket == "BeforeMarket" ? "BMO" : item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket == "AfterMarket" ? "AMC" : "",
-        formatNumber(item.ticker_info.Highlights.MarketCapitalization)
-      ])
-    })
-    
-  });
-  res.send({resData, totalCount});
+  const result = await database.collection('ActiveStockTickers').aggregate(pipeline).toArray();
+  const totalCount = result[0].totalCount[0].total;
+  const documents = result[0].documents;
+
+    var resData = [];
+    documents.forEach(item => {
+      Object.keys(item.ticker_info.Earnings.History).filter(hDate => { return lastDatesInRange.includes(hDate) && item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket === "AfterMarket" && item.ticker_info.Earnings.History[`${hDate}`].epsEstimate !== null}).map(hDate => {
+        resData.push([
+          item.ticker,
+          item.name,
+          item.ticker_info.Earnings.History[`${hDate}`].epsEstimate,
+          item.ticker_info.Earnings.History[`${hDate}`].reportDate,
+          item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket == "BeforeMarket" ? "BMO" : item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket == "AfterMarket" ? "AMC" : "",
+          formatNumber(item.ticker_info.Highlights.MarketCapitalization)
+        ])
+      })
+      
+    });
+    res.send({resData, totalCount});
 }; 
 
-// Find a single Tutorial with an id
+// Find UpcomingExDividend
 exports.UpcomingExDividend = async (req, res) => {
   const {size_range, first, rows, page, sortField, sortOrder, afterDays} = req.body;
-  // const sizeRange = req.query.sizeRange;
-  // const afterDays = req.query.afterDays;
-  // const page = req.query.page;
   const sizeRanges = size_range.split(',');
   const today = new Date(); 
   
@@ -179,11 +201,10 @@ exports.UpcomingExDividend = async (req, res) => {
       return { "ticker_info.Highlights.MarketCapitalization": { $gte: min, $lte: max } };
     });
     
-    console.log(orConditions); 
   }
   const orConditions1 = {
-          "ticker_info.SplitsDividends.ExDividendDate" : {$gte: formatedDate(today), $lte: afterDays}
-        }
+    "ticker_info.SplitsDividends.ExDividendDate" : {$gte: formatedDate(today), $lte: afterDays}
+  }
      
   if(orConditions.length === 0){
     find = orConditions1; 
@@ -199,31 +220,201 @@ exports.UpcomingExDividend = async (req, res) => {
     
   }
   
-  const projection = {
-    _id: 0,
-    ticker: 1,
-    name: 1,
-    "ticker_info.Highlights.MarketCapitalization": 1,
-    "ticker_info.SplitsDividends.ExDividendDate" : 1,
-    "ticker_info.SplitsDividends.PayoutRatio" : 1
-  };
-  const totalCount = await database.collection('ActiveStockTickers').countDocuments(find);
-  const documents = await database.collection('ActiveStockTickers').find(find).project(projection).sort({"ticker_info.Highlights.MarketCapitalization":-1}).skip(first).limit(rows).toArray();
+  const pipeline = [
+    {
+      $match: find // Your match criteria
+    },
+    {
+      $facet: {
+        totalCount: [
+          {
+            $count: "total"
+          }
+        ],
+        documents: [
+          {
+            $skip: first // Skip the first 'first' documents
+          },
+          {
+            $limit: rows // Limit the number of documents returned to 'rows'
+          },
+          {
+            $project:{
+              _id: 0,
+              ticker: 1,
+              name: 1,
+              "ticker_info.Highlights.MarketCapitalization": 1,
+              "ticker_info.SplitsDividends.ExDividendDate" : 1,
+              "ticker_info.SplitsDividends.PayoutRatio" : 1
+            }
+          },
+          {
+            $sort: {
+              "ticker_info.Highlights.MarketCapitalization": -1
+            }
+          }
+        ]
+      }
+    }
+  ];
+  
+  const result = await database.collection('ActiveStockTickers').aggregate(pipeline).toArray();
+  const totalCount = result[0].totalCount[0].total;
+  const documents = result[0].documents;
   var resData = [];
   documents.forEach(item => {
-    
-      resData.push([
-        item.ticker,
-        item.name,
-        item.ticker_info.SplitsDividends.ExDividendDate,
-        item.ticker_info.SplitsDividends.PayoutRatio,
-        formatNumber(item.ticker_info.Highlights.MarketCapitalization)
-      ])
-    
+    resData.push([
+      item.ticker,
+      item.name,
+      item.ticker_info.SplitsDividends.ExDividendDate,
+      item.ticker_info.SplitsDividends.PayoutRatio,
+      formatNumber(item.ticker_info.Highlights.MarketCapitalization)
+    ])
   });
-  res.send({resData, totalCount});
 
-  
+  res.send({resData, totalCount});
 };
 
+exports.EconomicCalendar = async (req, res) => {
+  const {date, first, rows} = req.body;
+  const dateTime = new Date(date); // Start of the date range
+  const endDate = new Date(dateTime.setDate(dateTime.getDate() + 1)); // End of the date range
+  const startDate = new Date(date);
+  find = {
+    $and: [
+        {
+        date: {$gte: startDate, $lte: endDate},}
+        ,{
+        _id : {$exists: true}
+      }
+    ]
+  }; 
+  
+  
+  const pipeline = [
+    {
+      $match: find // Your match criteria
+    },
+    {
+      $facet: {
+        totalCount: [
+          {
+            $count: "total"
+          }
+        ],
+        documents: [
+          {
+            $skip: first // Skip the first 'first' documents
+          },
+          {
+            $limit: rows // Limit the number of documents returned to 'rows'
+          },
+          {
+            $project:{
+              _id: 1,
+              country_flag: 1,
+              date: 1,
+              type: 1,
+              actual : 1,
+              estimate : 1,
+              previous: 1,
+            }
+          },
+          {
+            $sort: {
+              date :1
+            }
+          }
+        ]
+      }
+    }
+  ];
+  const result = await database.collection('EconomicEvents').aggregate(pipeline).toArray();
+  const totalCount = result[0].totalCount[0]?.total;
+  const documents = result[0].documents;
+  var resData = documents;
+  
+  res.send({resData, totalCount});
+};
+
+// find Etfs and Stocks
+exports.FindEtfsAndStocks = async (req, res) => {
+  const {subString} = req.body;
+  const regex = new RegExp(subString, 'i');
+    find = {$or: [{ticker: { $regex: regex }}, { name: { $regex: regex }}]}; 
+  
+  const pipeline = [
+    {
+      $match: find // Your match criteria
+    },
+    {
+      $facet: {
+        totalCount: [
+          {
+            $count: "total"
+          }
+        ],
+        documents: [
+          
+          {
+            $project:{
+              _id: 0,
+              ticker: 1,
+              name: 1
+            }
+          },
+          {
+            $sort: {
+              ticker: 1
+            }
+          }
+        ]
+      }
+    }
+  ];
+  
+  const result = await database.collection('ActiveStockTickers').aggregate(pipeline).toArray();
+  const totalCount = result[0].totalCount[0].total;
+  const documents = result[0].documents;
+  var resData = [];
+  documents.forEach(item => {
+    resData.push({
+      value: item.ticker,
+      label: item.ticker + '    ' + item.name
+  })
+  });
+  res.send({resData, totalCount});
+};
+
+// Find ETFs holders
+exports.getEtfHoldings = async (req, res) => {
+  const {stocker} = req.body;
+  
+    find = {$and: [{"ticker_info.ETF_Data": {$exists: true}}, {ticker: {$eq:stocker}}]}; 
+  
+  const pipeline = [
+    {
+      $match: find // Your match criteria
+    },
+    {
+        $project:{
+          _id: 0,
+          "ticker_info.ETF_Data.Top_10_Holdings": 1,
+          "ticker_info.ETF_Data.Holdings" : 1,
+        }
+    }
+  ];
+  
+  const result = await database.collection('ActiveStockTickers').aggregate(pipeline).toArray();
+  console.log(pipeline, result)
+  var resData = [];
+  result.forEach(item => {
+    resData.push({
+      "Top_10": item.ticker_info.ETF_Data.Top_10_Holdings,
+      "Holdings": item.ticker_info.ETF_Data.Holdings
+  })
+  });
+
+  res.send({resData});
+};
 
