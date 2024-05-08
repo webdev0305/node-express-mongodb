@@ -153,7 +153,7 @@ exports.UpcomingEarnings = async(req, res) => {
   ];
   
   const result = await database.collection('ActiveStockTickers').aggregate(pipeline).toArray();
-  const totalCount = result[0].totalCount[0].total;
+  const totalCount = result[0].totalCount[0]?.total;
   const documents = result[0].documents;
 
     var resData = [];
@@ -259,7 +259,7 @@ exports.UpcomingExDividend = async (req, res) => {
   ];
   
   const result = await database.collection('ActiveStockTickers').aggregate(pipeline).toArray();
-  const totalCount = result[0].totalCount[0].total;
+  const totalCount = result[0].totalCount[0]?.total;
   const documents = result[0].documents;
   var resData = [];
   documents.forEach(item => {
@@ -280,16 +280,18 @@ exports.EconomicCalendar = async (req, res) => {
   const dateTime = new Date(date); // Start of the date range
   const endDate = new Date(dateTime.setDate(dateTime.getDate() + 1)); // End of the date range
   const startDate = new Date(date);
+
   find = {
     $and: [
         {
-        date: {$gte: startDate, $lte: endDate},}
-        ,{
+        date: {$gte: startDate, $lte: endDate}
+        },
+        {
         _id : {$exists: true}
-      }
+        }
     ]
   }; 
-  
+  console.log(startDate,endDate )
   
   const pipeline = [
     {
@@ -389,7 +391,17 @@ exports.FindEtfsAndStocks = async (req, res) => {
 // Find ETFs holders
 exports.getEtfHoldings = async (req, res) => {
   const {stocker} = req.body;
+
+  // const finnhub = require('finnhub');
+
+  // const api_key = finnhub.ApiClient.instance.authentications['api_key'];
+  // api_key.apiKey = "cot8qmpr01qgacnd25u0cot8qmpr01qgacnd25ug"
+  // const finnhubClient = new finnhub.DefaultApi()
   
+  // finnhubClient.etfsHoldings({'symbol': 'ARKK'}, (error, data, response) => {
+  //   console.log(error,data);
+  // });
+
     find = {$and: [{"ticker_info.ETF_Data": {$exists: true}}, {ticker: {$eq:stocker}}]}; 
   
   const pipeline = [
@@ -401,17 +413,23 @@ exports.getEtfHoldings = async (req, res) => {
           _id: 0,
           "ticker_info.ETF_Data.Top_10_Holdings": 1,
           "ticker_info.ETF_Data.Holdings" : 1,
+          "ticker_info.ETF_Data.TotalAssets" : 1,
+          "ticker_info.ETF_Data.Asset_Allocation" : 1,
+          "ticker_info.ETF_Data.Sector_Weights" : 1
         }
     }
   ];
   
   const result = await database.collection('ActiveStockTickers').aggregate(pipeline).toArray();
-  console.log(pipeline, result)
+  // console.log(pipeline, result)
   var resData = [];
   result.forEach(item => {
     resData.push({
       "Top_10": item.ticker_info.ETF_Data.Top_10_Holdings,
-      "Holdings": item.ticker_info.ETF_Data.Holdings
+      "Holdings": item.ticker_info.ETF_Data.Holdings,
+      "TotalAssets" : item.ticker_info.ETF_Data.TotalAssets,
+      "AssetAllocation" : item.ticker_info.ETF_Data.Asset_Allocation,
+      "SectorWeights" : item.ticker_info.ETF_Data.Sector_Weights
   })
   });
 
