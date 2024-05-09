@@ -152,7 +152,6 @@ exports.Prints = async (req, res) => {
   ];
   
   const result = await database.collection('SecretSignalPrints').aggregate(pipeline).toArray();
-  console.log(result)
   const totalCount = result[0].totalCount[0]?.total;
   const documents = result[0]?.documents;
   res.send({documents, totalCount});

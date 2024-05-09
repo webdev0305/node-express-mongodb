@@ -33,7 +33,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to bezkoder application." });
 });
 
-// require("./app/routes/turorial.routes")(app);
+require("./app/routes/Account.routes")(app);
 require("./app/routes/ActiveStockTickers.routes")(app);
 require("./app/routes/MobyTickPrints.routes")(app);
 // set port, listen for requests

@@ -54,7 +54,6 @@ const today = new Date();
 const startDate = new Date(today.getFullYear(), today.getMonth()-3);
 const endDate = new Date(today.getFullYear(), today.getMonth()+2);
 const lastDatesInRange = getLastDatesInRange(startDate, endDate);
-
 // Retrieve all Tutorials from the database.
 exports.UpcomingEarnings = async(req, res) => {
   const {size_range, first, rows, page, sortField, sortOrder, afterDays} = req.body;
@@ -98,6 +97,7 @@ exports.UpcomingEarnings = async(req, res) => {
       ]
     });
   })
+  
   if(orConditions.length === 0){
     find = {
       $or: orConditions1
@@ -108,9 +108,7 @@ exports.UpcomingEarnings = async(req, res) => {
         {
           $or: orConditions
         },
-        {
-          $or: orConditions1
-        } 
+        orConditions1
       ]
     };
     
@@ -158,7 +156,9 @@ exports.UpcomingEarnings = async(req, res) => {
 
     var resData = [];
     documents.forEach(item => {
-      Object.keys(item.ticker_info.Earnings.History).filter(hDate => { return lastDatesInRange.includes(hDate) && item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket === "AfterMarket" && item.ticker_info.Earnings.History[`${hDate}`].epsEstimate !== null}).map(hDate => {
+
+      // && item.ticker_info.Earnings.History[`${hDate}`].epsEstimate !== null
+      Object.keys(item.ticker_info.Earnings.History).filter(hDate => { return lastDatesInRange.includes(hDate) && item.ticker_info.Earnings.History[`${hDate}`].beforeAfterMarket === "AfterMarket" && new Date(item.ticker_info.Earnings.History[`${hDate}`].reportDate) >= new Date(formatedDate(today)) && new Date(item.ticker_info.Earnings.History[`${hDate}`].reportDate) <= new Date(afterDays)}).map(hDate => {
         resData.push([
           item.ticker,
           item.name,
@@ -170,7 +170,7 @@ exports.UpcomingEarnings = async(req, res) => {
       })
       
     });
-    res.send({resData, totalCount});
+    res.send({resData, totalCount, documents});
 }; 
 
 // Find UpcomingExDividend
@@ -392,17 +392,7 @@ exports.FindEtfsAndStocks = async (req, res) => {
 exports.getEtfHoldings = async (req, res) => {
   const {stocker} = req.body;
 
-  // const finnhub = require('finnhub');
-
-  // const api_key = finnhub.ApiClient.instance.authentications['api_key'];
-  // api_key.apiKey = "cot8qmpr01qgacnd25u0cot8qmpr01qgacnd25ug"
-  // const finnhubClient = new finnhub.DefaultApi()
-  
-  // finnhubClient.etfsHoldings({'symbol': 'ARKK'}, (error, data, response) => {
-  //   console.log(error,data);
-  // });
-
-    find = {$and: [{"ticker_info.ETF_Data": {$exists: true}}, {ticker: {$eq:stocker}}]}; 
+  find = {$and: [{"ticker_info.ETF_Data": {$exists: true}}, {ticker: {$eq:stocker}}]}; 
   
   const pipeline = [
     {
