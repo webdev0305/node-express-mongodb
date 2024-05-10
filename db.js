@@ -23,10 +23,30 @@ async function getCollectionInfo() {
     }
   }
 
+  async function copyCollection(){
+     try {
+      await client.connect(); // Connect to the MongoDB server
+  
+      const database = client.db("MobyTickMasters"); // Access the desired database
+      const sourceCollection = database.collection('ActiveStockTickers'); // Access the source collection
+  
+      // Run the aggregation pipeline with $out stage to copy the collection
+      await sourceCollection.aggregate([
+          { $out: "activestocktickers" }
+      ]).toArray(); // Convert the aggregation cursor to an array
+  
+      console.log("Collection copied successfully");
+    } catch (error) {
+        console.error("Error copying collection:", error);
+    } finally {
+        // Don't forget to close the client connection when done
+        await client.close();
+    }
+  }
+
   async function processETFs() {
-    await client.connect()
-    var database = client.db("MobyTickMasters")
-    const cursor = await database.collection('ActiveStockTickers').find({"ticker_info.ETF_Data": {$exists: true}}).project({ticker: 1, "ticker_info.ETF_Data": 1}).toArray();
+   
+    const cursor = await database.collection('activestocktickers').find({"ticker_info.ETF_Data": {$exists: true}}).project({ticker: 1, "ticker_info.ETF_Data": 1}).toArray();
     for (let etfdata of cursor){
       if (!("ETF_Data" in etfdata.ticker_info)) continue;
       if (!("TotalAssets" in etfdata.ticker_info.ETF_Data)) continue;
@@ -42,14 +62,14 @@ async function getCollectionInfo() {
         const ticker = holding.substr(0,holding.length-3)
         const assets_percent = holdings[ticker+".US"]["Assets_%"]
         const assets_value = assets_percent * assets / 100
-        const doc = await database.collection('ActiveStockTickers').findOne({ticker:ticker})
+        const doc = await database.collection('activestocktickers').findOne({ticker:ticker})
         if (doc) {
           try{
             let update = {$set:{}}
             update.$set["ticker_info.holders."+etf+".percent"] = assets_percent
             update.$set["ticker_info.holders."+etf+".value"] = assets_value
   
-            await database.collection('ActiveStockTickers').updateOne({"ticker":ticker}, update);
+            await database.collection('activestocktickers').updateOne({"ticker":ticker}, update);
             console.log(ticker, assets_percent, assets_value)
           }catch(err) {
             console.log(err)
