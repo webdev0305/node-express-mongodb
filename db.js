@@ -45,7 +45,9 @@ async function getCollectionInfo() {
   }
 
   async function processETFs() {
-   
+    await client.connect(); // Connect to the MongoDB server
+  
+    const database = client.db("MobyTickMasters"); 
     const cursor = await database.collection('activestocktickers').find({"ticker_info.ETF_Data": {$exists: true}}).project({ticker: 1, "ticker_info.ETF_Data": 1}).toArray();
     for (let etfdata of cursor){
       if (!("ETF_Data" in etfdata.ticker_info)) continue;
